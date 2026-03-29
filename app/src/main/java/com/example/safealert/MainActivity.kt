@@ -16,6 +16,7 @@ import com.example.safealert.ui.theme.SafeAlertTheme
 class MainActivity : ComponentActivity() {
 
     private var pendingSmsAction: (() -> Unit)? = null
+    private var pendingLocationAction: (() -> Unit)? = null
 
     private val requestSmsPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
@@ -23,6 +24,15 @@ class MainActivity : ComponentActivity() {
                 pendingSmsAction?.invoke()
             } else {
                 Toast.makeText(this, "Permisiune SMS inactivă", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+    private val requestLocationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) {
+                pendingLocationAction?.invoke()
+            } else {
+                Toast.makeText(this, "Permisiune locație inactivă", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -46,12 +56,26 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        val requestLocationPermissionIfNeeded: ((() -> Unit) -> Unit) = { action ->
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                action()
+            } else {
+                pendingLocationAction = action
+                requestLocationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+            }
+        }
+
         setContent {
             SafeAlertTheme {
                 val navController = rememberNavController()
                 AppNavGraph(
                     navController = navController,
-                    onRequestSmsPermission = requestSmsPermissionIfNeeded
+                    onRequestSmsPermission = requestSmsPermissionIfNeeded,
+                    onRequestLocationPermission = requestLocationPermissionIfNeeded
                 )
             }
         }
