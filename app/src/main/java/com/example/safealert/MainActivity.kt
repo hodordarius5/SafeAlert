@@ -17,6 +17,7 @@ class MainActivity : ComponentActivity() {
 
     private var pendingSmsAction: (() -> Unit)? = null
     private var pendingLocationAction: (() -> Unit)? = null
+    private var pendingAudioAction: (() -> Unit)? = null
 
     private val requestSmsPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
@@ -33,6 +34,15 @@ class MainActivity : ComponentActivity() {
                 pendingLocationAction?.invoke()
             } else {
                 Toast.makeText(this, "Permisiune locație inactivă", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+    private val requestAudioPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) {
+                pendingAudioAction?.invoke()
+            } else {
+                Toast.makeText(this, "Microphone permission denied", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -69,13 +79,27 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        setContent {
+        val requestAudioPermissionIfNeeded: ((() -> Unit) -> Unit) = { action ->
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.RECORD_AUDIO
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                action()
+            } else {
+                pendingAudioAction = action
+                requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+
+                setContent {
             SafeAlertTheme {
                 val navController = rememberNavController()
                 AppNavGraph(
                     navController = navController,
                     onRequestSmsPermission = requestSmsPermissionIfNeeded,
-                    onRequestLocationPermission = requestLocationPermissionIfNeeded
+                    onRequestLocationPermission = requestLocationPermissionIfNeeded,
+                    onRequestAudioPermission = requestAudioPermissionIfNeeded
                 )
             }
         }

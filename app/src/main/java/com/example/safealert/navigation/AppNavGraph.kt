@@ -15,6 +15,11 @@ import android.util.Log
 import android.annotation.SuppressLint
 import android.telephony.SmsManager
 import com.google.android.gms.location.LocationServices
+import android.content.Intent
+import android.os.Bundle
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 
 //lista ecranelor si a rutelor
 sealed class Screen(val route: String) {
@@ -27,13 +32,100 @@ sealed class Screen(val route: String) {
 fun AppNavGraph(
     navController: NavHostController,
     onRequestSmsPermission: (action: () -> Unit) -> Unit,
-    onRequestLocationPermission: (action: () -> Unit) -> Unit
+    onRequestLocationPermission: (action: () -> Unit) -> Unit,
+    onRequestAudioPermission:(action: () -> Unit) -> Unit
 ) {
 
     val context = LocalContext.current
     val prefs = remember { PreferencesManager(context) }
     val fusedLocationClient = remember {
         LocationServices.getFusedLocationProviderClient(context)
+    }
+    val speechRecognizer = remember { SpeechRecognizer.createSpeechRecognizer(context) }
+
+    fun triggerSos() {
+        val c1 = prefs.getContact1().trim()
+        val c2 = prefs.getContact2().trim()
+        val msg = prefs.getMessage().trim()
+
+        if (c1.isEmpty() && c2.isEmpty()) {
+            Toast.makeText(
+                context,
+                "Adaugă măcar un contact în setări.",
+                Toast.LENGTH_SHORT
+            ).show()
+        } else if (msg.isEmpty()) {
+            Toast.makeText(
+                context,
+                "Adaugă un mesaj de urgență în setări.",
+                Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            val contacts = listOf(c1, c2).filter { it.isNotEmpty() }
+
+            onRequestLocationPermission {
+                try {
+                    @android.annotation.SuppressLint("MissingPermission")
+                    fusedLocationClient.lastLocation
+                        .addOnSuccessListener { location ->
+                            val finalMessage = if (location != null) {
+                                val latitude = location.latitude
+                                val longitude = location.longitude
+                                val mapsLink = "https://maps.google.com/?q=$latitude,$longitude"
+                                "🚨 SOS ALERT 🚨\n$msg\n\nLocație:\n$mapsLink"
+                            } else {
+                                "🚨 SOS ALERT 🚨\n$msg\n\nLocația nu a putut fi accesată."
+                            }
+
+                            onRequestSmsPermission {
+                                val smsManager = android.telephony.SmsManager.getDefault()
+
+                                contacts.forEach { phone ->
+                                    val parts = smsManager.divideMessage(finalMessage)
+                                    if (parts.size > 1) {
+                                        smsManager.sendMultipartTextMessage(
+                                            phone,
+                                            null,
+                                            parts,
+                                            null,
+                                            null
+                                        )
+                                    } else {
+                                        smsManager.sendTextMessage(
+                                            phone,
+                                            null,
+                                            finalMessage,
+                                            null,
+                                            null
+                                        )
+                                    }
+                                }
+
+                                Toast.makeText(
+                                    context,
+                                    "SOS cu locație trimis",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+
+                                android.util.Log.d("SOS", "Mesaj trimis: $finalMessage")
+                            }
+                        }
+                        .addOnFailureListener {
+                            Toast.makeText(
+                                context,
+                                "Locația nu a putut fi luată",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                } catch (e: Exception) {
+                    Toast.makeText(
+                        context,
+                        "Eroare locație: ${e.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
     }
 
     NavHost(
@@ -46,93 +138,60 @@ fun AppNavGraph(
                     navController.navigate(Screen.Settings.route)
                 },
                 onSosClick = {
-                    val c1 = prefs.getContact1().trim()
-                    val c2 = prefs.getContact2().trim()
-                    val msg = prefs.getMessage().trim()
-
-                    if (c1.isEmpty() && c2.isEmpty()) {
-                        Toast.makeText(
-                            context,
-                            "Adaugă măcar un contact în setări.",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    } else if (msg.isEmpty()) {
-                        Toast.makeText(
-                            context,
-                            "Adaugă un mesaj de urgență în setări.",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    } else {
-                        val contacts = listOf(c1, c2).filter { it.isNotEmpty() }
-
-                        onRequestLocationPermission {
-                            try {
-                                @SuppressLint("MissingPermission")
-                                fusedLocationClient.lastLocation
-                                    .addOnSuccessListener { location ->
-                                        val finalMessage = if (location != null) {
-                                            val latitude = location.latitude
-                                            val longitude = location.longitude
-                                            val mapsLink = "https://maps.google.com/?q=$latitude,$longitude"
-
-                                            "🚨 SOS ALERT 🚨\n$msg\n\nLocație:\n$mapsLink"
-                                        } else {
-                                            "🚨 SOS ALERT 🚨\n$msg\n\nLocația nu a putut fi accesată."
-                                        }
-
-                                        onRequestSmsPermission {
-                                            val smsManager = SmsManager.getDefault()
-                                            //lungimea mesajului nu trimitea mesajul, il dividem
-                                            contacts.forEach { phone ->
-                                                val parts = smsManager.divideMessage(finalMessage)
-
-                                                if (parts.size > 1) {
-                                                    smsManager.sendMultipartTextMessage(
-                                                        phone,
-                                                        null,
-                                                        parts,
-                                                        null,
-                                                        null
-                                                    )
-                                                } else {
-                                                    smsManager.sendTextMessage(
-                                                        phone,
-                                                        null,
-                                                        finalMessage,
-                                                        null,
-                                                        null
-                                                    )
-                                                }
-                                            }
-
-                                            Toast.makeText(
-                                                context,
-                                                "SOS cu locație trimis",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-
-                                            Log.d("SOS", "Mesaj trimis: $finalMessage")
-                                        }
-                                    }
-                                    .addOnFailureListener {
-                                        Toast.makeText(
-                                            context,
-                                            "Locația nu a putut fi luată",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                            } catch (e: Exception) {
-                                Toast.makeText(
-                                    context,
-                                    "Eroare locație: ${e.message}",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        }
-                    }
+                    triggerSos()
                 },
                 onVoiceClick = {
-                    // aici punem mai târziu logica pentru voce
+                    onRequestAudioPermission {
+                        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                            putExtra(
+                                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                            )
+                            putExtra(RecognizerIntent.EXTRA_PROMPT, "Spune SOS, help sau ajutor")
+                        }
+
+                        speechRecognizer.setRecognitionListener(object : RecognitionListener {
+                            override fun onReadyForSpeech(params: Bundle?) {
+                                Toast.makeText(context, "Te ascult...", Toast.LENGTH_SHORT).show()
+                            }
+
+                            override fun onBeginningOfSpeech() {}
+
+                            override fun onRmsChanged(rmsdB: Float) {}
+
+                            override fun onBufferReceived(buffer: ByteArray?) {}
+
+                            override fun onEndOfSpeech() {}
+
+                            override fun onError(error: Int) {
+                                Toast.makeText(context, "Nu am înțeles. Încearcă din nou.", Toast.LENGTH_SHORT).show()
+                            }
+
+                            override fun onResults(results: Bundle?) {
+                                val matches = results
+                                    ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                                    ?.map { it.lowercase() }
+                                    ?: emptyList()
+
+                                val hasTriggerWord = matches.any {
+                                    it.contains("sos") || it.contains("help") || it.contains("ajutor")
+                                }
+
+                                if (hasTriggerWord) {
+                                    Toast.makeText(context, "Comandă vocală detectată", Toast.LENGTH_SHORT).show()
+                                    triggerSos()
+                                } else {
+                                    Toast.makeText(context, "Nu am detectat o comandă SOS", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+
+                            override fun onPartialResults(partialResults: Bundle?) {}
+
+                            override fun onEvent(eventType: Int, params: Bundle?) {}
+                        })
+
+                        speechRecognizer.startListening(intent)
+                    }
                 }
             )
         }
