@@ -20,6 +20,13 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import androidx.compose.runtime.DisposableEffect
+import kotlin.math.sqrt
 
 //lista ecranelor si a rutelor
 sealed class Screen(val route: String) {
@@ -42,6 +49,13 @@ fun AppNavGraph(
         LocationServices.getFusedLocationProviderClient(context)
     }
     val speechRecognizer = remember { SpeechRecognizer.createSpeechRecognizer(context) }
+    val sensorManager = remember {
+        context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    }
+
+    val accelerometer = remember {
+        sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+    }
 
     fun triggerSos() {
         val c1 = prefs.getContact1().trim()
@@ -125,6 +139,46 @@ fun AppNavGraph(
                     ).show()
                 }
             }
+        }
+    }
+
+    val shakeListener = remember {
+        object : SensorEventListener {
+            private var lastShakeTime = 0L
+
+            override fun onSensorChanged(event: SensorEvent?) {
+                if (event == null) return
+
+                val x = event.values[0]
+                val y = event.values[1]
+                val z = event.values[2]
+
+                val gForce = sqrt(x * x + y * y + z * z) / SensorManager.GRAVITY_EARTH
+
+                val currentTime = System.currentTimeMillis()
+
+                if (gForce > 2.7f && currentTime - lastShakeTime > 1500) {
+                    lastShakeTime = currentTime
+                    Toast.makeText(context, "Shake detectat", Toast.LENGTH_SHORT).show()
+                    triggerSos()
+                }
+            }
+
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+    }
+
+    DisposableEffect(accelerometer) {
+        if (accelerometer != null) {
+            sensorManager.registerListener(
+                shakeListener,
+                accelerometer,
+                SensorManager.SENSOR_DELAY_NORMAL
+            )
+        }
+
+        onDispose {
+            sensorManager.unregisterListener(shakeListener)
         }
     }
 
