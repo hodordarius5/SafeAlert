@@ -11,6 +11,7 @@ import android.widget.Toast
 import com.example.safealert.data.PreferencesManager
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import android.util.Log
 
 //lista ecranelor si a rutelor
 sealed class Screen(val route: String) {
@@ -20,7 +21,10 @@ sealed class Screen(val route: String) {
 
 //descrierea navigarii propriu-zisa
 @Composable
-fun AppNavGraph(navController: NavHostController) {
+fun AppNavGraph(
+    navController: NavHostController,
+    onRequestSmsPermission: (action: () -> Unit) -> Unit
+) {
 
     val context = LocalContext.current
     val prefs = remember { PreferencesManager(context) }
@@ -52,11 +56,24 @@ fun AppNavGraph(navController: NavHostController) {
                             Toast.LENGTH_SHORT
                         ).show()
                     } else {
-                        Toast.makeText(
-                            context,
-                            "Datele SOS sunt gata. Următorul pas: trimitere alertă.",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        val contacts = listOf(c1, c2).filter { it.isNotEmpty() }
+                        val finalMessage = "🚨 Alertă SOS 🚨\n$msg"
+
+                        onRequestSmsPermission {
+                            val smsManager = android.telephony.SmsManager.getDefault()
+
+                            contacts.forEach { phone ->
+                                smsManager.sendTextMessage(
+                                    phone,
+                                    null,
+                                    finalMessage,
+                                    null,
+                                    null
+                                )
+                            }
+                            Toast.makeText(context, "SMS trimis", Toast.LENGTH_SHORT)
+                                .show()
+                        }
                     }
                 },
                 onVoiceClick = {
