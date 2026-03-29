@@ -20,6 +20,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.safealert.data.PreferencesManager
+import android.widget.Toast
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 
 @OptIn(ExperimentalMaterial3Api::class) //asumare folosire functii experimentale (TopAppBar)
 
@@ -29,6 +33,7 @@ fun HomeScreen(
     onSosClick: () -> Unit,
     onVoiceClick: () -> Unit
 ){
+
     //Scaffold = scheletul, layout de baza, pentru organizare
     Scaffold(topBar = { TopAppBar(title = {Text("SafeAlert")})})
     {

@@ -18,7 +18,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.example.safealert.data.PreferencesManager
+import androidx.compose.runtime.LaunchedEffect
 
 @OptIn(ExperimentalMaterial3Api::class)
 
@@ -29,6 +32,14 @@ fun SettingsScreen(
     val contact1 = remember {mutableStateOf("")} //nu pierde valoare la rerandare
     val contact2 = remember {mutableStateOf("")}
     val emergencyMessage = remember {mutableStateOf("")}
+    val context = LocalContext.current
+    val prefs = remember { PreferencesManager(context) }
+
+    LaunchedEffect(Unit) { //popularea datelor existente in ecranul de setari
+        contact1.value = prefs.getContact1()
+        contact2.value = prefs.getContact2()
+        emergencyMessage.value = prefs.getMessage()
+    }
 
     Scaffold(
         topBar = {
@@ -51,6 +62,7 @@ fun SettingsScreen(
                 .padding(20.dp)
         )
         {
+            //camp contact 1
             OutlinedTextField(
                 value = contact1.value,
                 onValueChange = { contact1.value = it },
@@ -61,6 +73,7 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            //camp contact 2
             OutlinedTextField(
                 value = contact2.value,
                 onValueChange = { contact2.value = it },
@@ -71,6 +84,7 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            //camp pentru mesaj de urgenta
             OutlinedTextField(
                 value = emergencyMessage.value,
                 onValueChange = { emergencyMessage.value = it },
@@ -81,9 +95,15 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            //buton pentru salvare
             Button(
                 onClick = {
-                    //aici salvăm mai târziu
+                    //salvarea datelor
+                    prefs.saveContacts(
+                        contact1.value,
+                        contact2.value,
+                        emergencyMessage.value
+                    )
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp)
