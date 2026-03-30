@@ -22,6 +22,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.safealert.data.PreferencesManager
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.Switch
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.text.style.TextAlign
 
 @OptIn(ExperimentalMaterial3Api::class)
 
@@ -34,11 +40,15 @@ fun SettingsScreen(
     val emergencyMessage = remember {mutableStateOf("")}
     val context = LocalContext.current
     val prefs = remember { PreferencesManager(context) }
+    val inactivityEnabled = remember { mutableStateOf(false) }
+    val selectedMinutes = remember { mutableStateOf(10) }
 
     LaunchedEffect(Unit) { //popularea datelor existente in ecranul de setari
         contact1.value = prefs.getContact1()
         contact2.value = prefs.getContact2()
         emergencyMessage.value = prefs.getMessage()
+        inactivityEnabled.value = prefs.isInactivityEnabled()
+        selectedMinutes.value = prefs.getInactivityMinutes()
     }
 
     Scaffold(
@@ -95,6 +105,70 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+
+            //toggle pt feature inactivitate
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("SOS la inactivitate")
+
+                Switch(
+                    checked = inactivityEnabled.value,
+                    onCheckedChange = {
+                        inactivityEnabled.value = it
+                        prefs.setInactivityEnabled(it)
+                    }
+                )
+            }
+
+            //spatiu
+            Spacer(modifier = Modifier.height(16.dp))
+
+            //zona de activare si setare inactivitate
+            Text(
+                text = if (inactivityEnabled.value)
+                    "Feature activ"
+                else
+                    "Feature inactiv"
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text("Alege timpul de inactivitate:")
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(10, 15, 20, 30).forEach { minute ->
+                    OutlinedButton(
+                        onClick = {
+                            selectedMinutes.value = minute
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(
+                            text = "$minute",
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text("Selectat: ${selectedMinutes.value} minute")
+
+            Spacer(modifier = Modifier.height(8.dp))
+
             //buton pentru salvare
             Button(
                 onClick = {
@@ -104,6 +178,9 @@ fun SettingsScreen(
                         contact2.value,
                         emergencyMessage.value
                     )
+
+                    prefs.setInactivityEnabled(inactivityEnabled.value)
+                    prefs.setInactivityMinutes(selectedMinutes.value)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp)

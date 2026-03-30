@@ -69,6 +69,10 @@ fun AppNavGraph(
     var showCallCountdownDialog by remember { mutableStateOf(false) }
     var countdown by remember { mutableStateOf(10) }
 
+    var lastUserInteractionTime by remember { mutableStateOf(System.currentTimeMillis()) }
+    var lastMovementTime by remember { mutableStateOf(System.currentTimeMillis()) }
+    var inactivityAlertSent by remember { mutableStateOf(false) }
+
     fun triggerSos() {
         val c1 = prefs.getContact1().trim()
         val c2 = prefs.getContact2().trim()
@@ -156,6 +160,87 @@ fun AppNavGraph(
         }
     }
 
+    fun triggerInactivitySos(minutes: Int) {
+        val c1 = prefs.getContact1().trim()
+        val c2 = prefs.getContact2().trim()
+
+        if (c1.isEmpty() && c2.isEmpty()) {
+            Toast.makeText(
+                context,
+                "Nu există contacte pentru alerta de inactivitate.",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        val customMessage = "Nu am mai fost activ de $minutes minute. Verifică dacă sunt în siguranță."
+
+        val contacts = listOf(c1, c2).filter { it.isNotEmpty() }
+
+        onRequestLocationPermission {
+            try {
+                @SuppressLint("MissingPermission")
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { location ->
+                        val finalMessage = if (location != null) {
+                            val latitude = location.latitude
+                            val longitude = location.longitude
+                            val mapsLink = "https://maps.google.com/?q=$latitude,$longitude"
+                            "⚠️ ALERTĂ DE INACTIVITATE ⚠️\n$customMessage\n\nLocație:\n$mapsLink"
+                        } else {
+                            "⚠️ ALERTĂ DE INACTIVITATE ⚠️\n$customMessage\n\nLocația nu a putut fi accesată."
+                        }
+
+                        onRequestSmsPermission {
+                            val smsManager = SmsManager.getDefault()
+
+                            contacts.forEach { phone ->
+                                val parts = smsManager.divideMessage(finalMessage)
+                                if (parts.size > 1) {
+                                    smsManager.sendMultipartTextMessage(
+                                        phone,
+                                        null,
+                                        parts,
+                                        null,
+                                        null
+                                    )
+                                } else {
+                                    smsManager.sendTextMessage(
+                                        phone,
+                                        null,
+                                        finalMessage,
+                                        null,
+                                        null
+                                    )
+                                }
+                            }
+
+                            Toast.makeText(
+                                context,
+                                "Alerta de inactivitate a fost trimisă.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+
+                            Log.d("INACTIVITY", "Mesaj trimis: $finalMessage")
+                        }
+                    }
+                    .addOnFailureListener {
+                        Toast.makeText(
+                            context,
+                            "Locația nu a putut fi luată pentru alerta de inactivitate.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+            } catch (e: Exception) {
+                Toast.makeText(
+                    context,
+                    "Eroare la alerta de inactivitate: ${e.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
     val shakeListener = remember {
         object : SensorEventListener {
             private var lastShakeTime = 0L
@@ -170,6 +255,11 @@ fun AppNavGraph(
                 val gForce = sqrt(x * x + y * y + z * z) / SensorManager.GRAVITY_EARTH
 
                 val currentTime = System.currentTimeMillis()
+
+                if (gForce > 1.2f) {
+                    lastMovementTime = currentTime
+                    inactivityAlertSent = false
+                }
 
                 if (gForce > 2.7f && currentTime - lastShakeTime > 1500) {
                     lastShakeTime = currentTime
@@ -222,6 +312,26 @@ fun AppNavGraph(
         }
     }
 
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(30_000)
+
+            if (!prefs.isInactivityEnabled()) continue
+
+            val now = System.currentTimeMillis()
+            val timeoutMinutes = prefs.getInactivityMinutes()
+            val timeoutMillis = timeoutMinutes * 60 * 1000L
+
+            val inactiveByTouch = now - lastUserInteractionTime >= timeoutMillis
+            val inactiveByMovement = now - lastMovementTime >= timeoutMillis
+
+            if (inactiveByTouch && inactiveByMovement && !inactivityAlertSent) {
+                inactivityAlertSent = true
+                triggerInactivitySos(timeoutMinutes)
+            }
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = Screen.Home.route //ecranul de deschidere al aplicatiei
@@ -229,12 +339,18 @@ fun AppNavGraph(
         composable(Screen.Home.route) {
             HomeScreen(
                 onSettingsClick = {
+                    lastUserInteractionTime = System.currentTimeMillis()
+                    inactivityAlertSent = false
                     navController.navigate(Screen.Settings.route)
                 },
                 onSosClick = {
+                    lastUserInteractionTime = System.currentTimeMillis()
+                    inactivityAlertSent = false
                     triggerSos()
                 },
                 onVoiceClick = {
+                    lastUserInteractionTime = System.currentTimeMillis()
+                    inactivityAlertSent = false
                     onRequestAudioPermission {
                         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                             putExtra(
@@ -294,6 +410,8 @@ fun AppNavGraph(
         composable(Screen.Settings.route) {
             SettingsScreen(
                 onBackClick = {
+                    lastUserInteractionTime = System.currentTimeMillis()
+                    inactivityAlertSent = false
                     navController.popBackStack()
                 }
             )
