@@ -27,6 +27,15 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import androidx.compose.runtime.DisposableEffect
 import kotlin.math.sqrt
+import android.net.Uri
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import kotlinx.coroutines.delay
 
 //lista ecranelor si a rutelor
 sealed class Screen(val route: String) {
@@ -40,7 +49,8 @@ fun AppNavGraph(
     navController: NavHostController,
     onRequestSmsPermission: (action: () -> Unit) -> Unit,
     onRequestLocationPermission: (action: () -> Unit) -> Unit,
-    onRequestAudioPermission:(action: () -> Unit) -> Unit
+    onRequestAudioPermission:(action: () -> Unit) -> Unit,
+    onRequestCallPermission:(action: () -> Unit) -> Unit
 ) {
 
     val context = LocalContext.current
@@ -52,10 +62,12 @@ fun AppNavGraph(
     val sensorManager = remember {
         context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     }
-
     val accelerometer = remember {
         sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
     }
+
+    var showCallCountdownDialog by remember { mutableStateOf(false) }
+    var countdown by remember { mutableStateOf(10) }
 
     fun triggerSos() {
         val c1 = prefs.getContact1().trim()
@@ -122,6 +134,8 @@ fun AppNavGraph(
                                 ).show()
 
                                 android.util.Log.d("SOS", "Mesaj trimis: $finalMessage")
+                                showCallCountdownDialog = true //porneste countdown
+                                countdown = 10
                             }
                         }
                         .addOnFailureListener {
@@ -179,6 +193,32 @@ fun AppNavGraph(
 
         onDispose {
             sensorManager.unregisterListener(shakeListener)
+        }
+    }
+
+    LaunchedEffect(showCallCountdownDialog, countdown) {
+        if (showCallCountdownDialog && countdown > 0) {
+            delay(1000)
+            countdown--
+        } else if (showCallCountdownDialog && countdown == 0) {
+            showCallCountdownDialog = false
+
+            val phone = prefs.getContact1().trim()
+
+            if (phone.isNotEmpty()) {
+                onRequestCallPermission {
+                    val intent = Intent(Intent.ACTION_CALL).apply {
+                        data = Uri.parse("tel:$phone")
+                    }
+                    context.startActivity(intent)
+                }
+            } else {
+                Toast.makeText(
+                    context,
+                    "Nu există contact principal pentru apel.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         }
     }
 
@@ -250,6 +290,7 @@ fun AppNavGraph(
             )
         }
 
+
         composable(Screen.Settings.route) {
             SettingsScreen(
                 onBackClick = {
@@ -257,5 +298,25 @@ fun AppNavGraph(
                 }
             )
         }
+    }
+    if (showCallCountdownDialog) {
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showCallCountdownDialog = false
+                    }
+                ) {
+                    Text("Anulează")
+                }
+            },
+            title = {
+                Text("Alertă de urgență")
+            },
+            text = {
+                Text("Se va apela automat contactul principal în $countdown secunde.")
+            }
+        )
     }
 }

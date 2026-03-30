@@ -19,6 +19,17 @@ class MainActivity : ComponentActivity() {
     private var pendingLocationAction: (() -> Unit)? = null
     private var pendingAudioAction: (() -> Unit)? = null
 
+    private var pendingCallAction: (() -> Unit)? = null
+
+    private val requestCallPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) {
+                pendingCallAction?.invoke()
+            } else {
+                Toast.makeText(this, "Call permission denied", Toast.LENGTH_SHORT).show()
+            }
+        }
+
     private val requestSmsPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             if (isGranted) {
@@ -92,6 +103,19 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        val requestCallPermissionIfNeeded: ((() -> Unit) -> Unit) = { action ->
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.CALL_PHONE
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                action()
+            } else {
+                pendingCallAction = action
+                requestCallPermissionLauncher.launch(Manifest.permission.CALL_PHONE)
+            }
+        }
+
                 setContent {
             SafeAlertTheme {
                 val navController = rememberNavController()
@@ -99,7 +123,8 @@ class MainActivity : ComponentActivity() {
                     navController = navController,
                     onRequestSmsPermission = requestSmsPermissionIfNeeded,
                     onRequestLocationPermission = requestLocationPermissionIfNeeded,
-                    onRequestAudioPermission = requestAudioPermissionIfNeeded
+                    onRequestAudioPermission = requestAudioPermissionIfNeeded,
+                    onRequestCallPermission = requestCallPermissionIfNeeded
                 )
             }
         }
