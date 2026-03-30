@@ -42,6 +42,7 @@ fun SettingsScreen(
     val prefs = remember { PreferencesManager(context) }
     val inactivityEnabled = remember { mutableStateOf(false) }
     val selectedMinutes = remember { mutableStateOf(10) }
+    val lowBatteryEnabled = remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { //popularea datelor existente in ecranul de setari
         contact1.value = prefs.getContact1()
@@ -49,6 +50,7 @@ fun SettingsScreen(
         emergencyMessage.value = prefs.getMessage()
         inactivityEnabled.value = prefs.isInactivityEnabled()
         selectedMinutes.value = prefs.getInactivityMinutes()
+        lowBatteryEnabled.value = prefs.isLowBatteryEnabled()
     }
 
     Scaffold(
@@ -169,6 +171,30 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            //zona feature baterie
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Alertă baterie scăzută")
+
+                Switch(
+                    checked = lowBatteryEnabled.value,
+                    onCheckedChange = {
+                        lowBatteryEnabled.value = it
+                        prefs.setLowBatteryEnabled(it)
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text("La 10% se trimite alertă de baterie scăzută.")
+            Text("La 5% se trimite locația finală.")
+
+            Spacer(modifier = Modifier.height(20.dp))
+
             //buton pentru salvare
             Button(
                 onClick = {
@@ -181,6 +207,8 @@ fun SettingsScreen(
 
                     prefs.setInactivityEnabled(inactivityEnabled.value)
                     prefs.setInactivityMinutes(selectedMinutes.value)
+
+                    prefs.setLowBatteryEnabled(lowBatteryEnabled.value)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp)

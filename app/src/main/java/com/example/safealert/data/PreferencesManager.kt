@@ -8,6 +8,8 @@ class PreferencesManager(context: Context){
     private val KEY_INACTIVITY_ENABLED = "inactivity_enabled" //pt feature inactivitate
     private val KEY_INACTIVITY_MINUTES = "inactivity_minutes"
 
+    private val KEY_LOW_BATTERY_ENABLED = "low_battery_enabled" //pt feature baterie
+
     fun saveContacts(contact1: String, contact2: String, message: String){
         prefs.edit().apply{
             putString("contact1", contact1)
@@ -45,6 +47,15 @@ class PreferencesManager(context: Context){
 
     fun getInactivityMinutes(): Int {
         return prefs.getInt(KEY_INACTIVITY_MINUTES, 10)
+    }
+
+    //functii pt detectare baterie
+    fun setLowBatteryEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_LOW_BATTERY_ENABLED, enabled).apply()
+    }
+
+    fun isLowBatteryEnabled(): Boolean {
+        return prefs.getBoolean(KEY_LOW_BATTERY_ENABLED, false)
     }
 
 }

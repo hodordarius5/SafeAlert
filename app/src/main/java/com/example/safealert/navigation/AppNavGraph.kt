@@ -36,6 +36,10 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import kotlinx.coroutines.delay
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
+import android.os.BatteryManager
+import android.provider.Settings
 
 //lista ecranelor si a rutelor
 sealed class Screen(val route: String) {
@@ -72,6 +76,9 @@ fun AppNavGraph(
     var lastUserInteractionTime by remember { mutableStateOf(System.currentTimeMillis()) }
     var lastMovementTime by remember { mutableStateOf(System.currentTimeMillis()) }
     var inactivityAlertSent by remember { mutableStateOf(false) }
+
+    var lowBatteryAlertSent by remember { mutableStateOf(false) }
+    var finalBatteryAlertSent by remember { mutableStateOf(false) }
 
     fun triggerSos() {
         val c1 = prefs.getContact1().trim()
@@ -241,6 +248,98 @@ fun AppNavGraph(
         }
     }
 
+    fun triggerBatteryAlert(title: String, body: String, openBatterySaver: Boolean = false) {
+        val c1 = prefs.getContact1().trim()
+        val c2 = prefs.getContact2().trim()
+
+        if (c1.isEmpty() && c2.isEmpty()) {
+            Toast.makeText(
+                context,
+                "Nu există contacte pentru alerta de baterie.",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        val contacts = listOf(c1, c2).filter { it.isNotEmpty() }
+
+        onRequestLocationPermission {
+            try {
+                @SuppressLint("MissingPermission")
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { location ->
+                        val finalMessage = if (location != null) {
+                            val latitude = location.latitude
+                            val longitude = location.longitude
+                            val mapsLink = "https://maps.google.com/?q=$latitude,$longitude"
+                            "$title\n$body\n\nLocație:\n$mapsLink"
+                        } else {
+                            "$title\n$body\n\nLocația nu a putut fi accesată."
+                        }
+
+                        onRequestSmsPermission {
+                            val smsManager = SmsManager.getDefault()
+
+                            contacts.forEach { phone ->
+                                val parts = smsManager.divideMessage(finalMessage)
+                                if (parts.size > 1) {
+                                    smsManager.sendMultipartTextMessage(
+                                        phone,
+                                        null,
+                                        parts,
+                                        null,
+                                        null
+                                    )
+                                } else {
+                                    smsManager.sendTextMessage(
+                                        phone,
+                                        null,
+                                        finalMessage,
+                                        null,
+                                        null
+                                    )
+                                }
+                            }
+
+                            Toast.makeText(
+                                context,
+                                "Alerta de baterie a fost trimisă.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+
+                            Log.d("BATTERY_ALERT", "Mesaj trimis: $finalMessage")
+
+                            if (openBatterySaver) {
+                                try {
+                                    val intent = Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS)
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    Toast.makeText(
+                                        context,
+                                        "Nu am putut deschide setările pentru economisirea bateriei.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        }
+                    }
+                    .addOnFailureListener {
+                        Toast.makeText(
+                            context,
+                            "Locația nu a putut fi luată pentru alerta de baterie.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+            } catch (e: Exception) {
+                Toast.makeText(
+                    context,
+                    "Eroare alertă baterie: ${e.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
     val shakeListener = remember {
         object : SensorEventListener {
             private var lastShakeTime = 0L
@@ -272,6 +371,46 @@ fun AppNavGraph(
         }
     }
 
+    val batteryReceiver = remember {
+        object : BroadcastReceiver() {
+            override fun onReceive(contextReceiver: Context?, intent: Intent?) {
+                val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+                val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+
+                if (level < 0 || scale <= 0) return
+
+                val batteryPct = (level * 100) / scale
+
+                if (!prefs.isLowBatteryEnabled()) return
+
+                if (batteryPct <= 10 && !lowBatteryAlertSent) {
+                    lowBatteryAlertSent = true
+
+                    triggerBatteryAlert(
+                        title = "⚠️ ALERTĂ BATERIE SCĂZUTĂ ⚠️",
+                        body = "Telefonul meu a ajuns la $batteryPct% baterie. Activez economisirea de energie și vă trimit locația mea curentă.",
+                        openBatterySaver = true
+                    )
+                }
+
+                if (batteryPct <= 5 && !finalBatteryAlertSent) {
+                    finalBatteryAlertSent = true
+
+                    triggerBatteryAlert(
+                        title = "🔴 Alertă locație finală 🔴",
+                        body = "Telefonul meu este pe cale să se închidă. Aceasta este ultima mea locație cunoscută.",
+                        openBatterySaver = false
+                    )
+                }
+
+                if (batteryPct > 10) {
+                    lowBatteryAlertSent = false
+                    finalBatteryAlertSent = false
+                }
+            }
+        }
+    }
+
     DisposableEffect(accelerometer) {
         if (accelerometer != null) {
             sensorManager.registerListener(
@@ -283,6 +422,18 @@ fun AppNavGraph(
 
         onDispose {
             sensorManager.unregisterListener(shakeListener)
+        }
+    }
+
+    DisposableEffect(Unit) {
+        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        context.registerReceiver(batteryReceiver, filter)
+
+        onDispose {
+            try {
+                context.unregisterReceiver(batteryReceiver)
+            } catch (_: Exception) {
+            }
         }
     }
 
