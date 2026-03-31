@@ -103,4 +103,37 @@ class PreferencesManager(context: Context){
         return prefs.getInt("scheduled_message_hours", 3)
     }
 
+    //functii geofencing
+    fun setSafeZoneEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("safe_zone_enabled", enabled).apply()
+    }
+
+    fun isSafeZoneEnabled(): Boolean {
+        return prefs.getBoolean("safe_zone_enabled", false)
+    }
+
+    fun setSafeZoneLatitude(latitude: String) {
+        prefs.edit().putString("safe_zone_latitude", latitude).apply()
+    }
+
+    fun getSafeZoneLatitude(): String {
+        return prefs.getString("safe_zone_latitude", "") ?: ""
+    }
+
+    fun setSafeZoneLongitude(longitude: String) {
+        prefs.edit().putString("safe_zone_longitude", longitude).apply()
+    }
+
+    fun getSafeZoneLongitude(): String {
+        return prefs.getString("safe_zone_longitude", "") ?: ""
+    }
+
+    fun setSafeZoneRadius(radiusMeters: Int) {
+        prefs.edit().putInt("safe_zone_radius", radiusMeters).apply()
+    }
+
+    fun getSafeZoneRadius(): Int {
+        return prefs.getInt("safe_zone_radius", 100)
+    }
+
 }

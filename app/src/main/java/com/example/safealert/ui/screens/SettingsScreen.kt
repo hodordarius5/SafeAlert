@@ -54,6 +54,11 @@ fun SettingsScreen(
     val scheduledMessageText = remember { mutableStateOf("") }
     val scheduledMessageHours = remember { mutableStateOf(3) }
 
+    val safeZoneEnabled = remember { mutableStateOf(false) }
+    val safeZoneLatitude = remember { mutableStateOf("") }
+    val safeZoneLongitude = remember { mutableStateOf("") }
+    val safeZoneRadius = remember { mutableStateOf(100) }
+
     LaunchedEffect(Unit) { //popularea datelor existente in ecranul de setari
         contact1.value = prefs.getContact1()
         contact2.value = prefs.getContact2()
@@ -66,6 +71,10 @@ fun SettingsScreen(
         scheduledMessageEnabled.value = prefs.isScheduledMessageEnabled()
         scheduledMessageText.value = prefs.getScheduledMessageText()
         scheduledMessageHours.value = prefs.getScheduledMessageHours()
+        safeZoneEnabled.value = prefs.isSafeZoneEnabled()
+        safeZoneLatitude.value = prefs.getSafeZoneLatitude()
+        safeZoneLongitude.value = prefs.getSafeZoneLongitude()
+        safeZoneRadius.value = prefs.getSafeZoneRadius()
     }
 
     val scrollState = rememberScrollState() //pt scroll
@@ -319,6 +328,68 @@ fun SettingsScreen(
                 Text("Anulează countdown")
             }
 
+            //zona geofencing
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Alertă ieșire din zona sigură")
+
+                Switch(
+                    checked = safeZoneEnabled.value,
+                    onCheckedChange = {
+                        safeZoneEnabled.value = it
+                        prefs.setSafeZoneEnabled(it)
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = safeZoneLatitude.value,
+                onValueChange = { safeZoneLatitude.value = it },
+                label = { Text("Latitudine zonă sigură") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = safeZoneLongitude.value,
+                onValueChange = { safeZoneLongitude.value = it },
+                label = { Text("Longitudine zonă sigură") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text("Rază zonă sigură:")
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(100, 200, 500).forEach { meters ->
+                    OutlinedButton(
+                        onClick = { safeZoneRadius.value = meters },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("$meters m")
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text("Selectat: ${safeZoneRadius.value} metri")
+
             Spacer(modifier = Modifier.height(20.dp))
 
             //buton pentru salvare
@@ -342,6 +413,11 @@ fun SettingsScreen(
                     prefs.setScheduledMessageEnabled(scheduledMessageEnabled.value)
                     prefs.setScheduledMessageText(scheduledMessageText.value)
                     prefs.setScheduledMessageHours(scheduledMessageHours.value)
+
+                    prefs.setSafeZoneEnabled(safeZoneEnabled.value)
+                    prefs.setSafeZoneLatitude(safeZoneLatitude.value)
+                    prefs.setSafeZoneLongitude(safeZoneLongitude.value)
+                    prefs.setSafeZoneRadius(safeZoneRadius.value)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp)

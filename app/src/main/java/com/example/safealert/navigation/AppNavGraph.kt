@@ -40,6 +40,11 @@ import android.content.BroadcastReceiver
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.provider.Settings
+import android.location.Location
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.Priority
+import com.google.android.gms.location.LocationResult
 
 //lista ecranelor si a rutelor
 sealed class Screen(val route: String) {
@@ -81,6 +86,8 @@ fun AppNavGraph(
 
     var lowBatteryAlertSent by remember { mutableStateOf(false) }
     var finalBatteryAlertSent by remember { mutableStateOf(false) }
+
+    var safeZoneAlertSent by remember { mutableStateOf(false) }
 
     fun triggerSos() {
         val c1 = prefs.getContact1().trim()
@@ -342,6 +349,50 @@ fun AppNavGraph(
         }
     }
 
+    fun triggerSafeZoneAlert() {
+        val c1 = prefs.getContact1().trim()
+        val c2 = prefs.getContact2().trim()
+        val contacts = listOf(c1, c2).filter { it.isNotEmpty() }
+
+        if (contacts.isEmpty()) {
+            Toast.makeText(context, "Nu există contacte pentru safe zone.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        onRequestLocationPermission {
+            try {
+                @SuppressLint("MissingPermission")
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { location ->
+                        val finalMessage = if (location != null) {
+                            val mapsLink =
+                                "https://maps.google.com/?q=${location.latitude},${location.longitude}"
+                            "⚠️ SAFE ZONE ALERT ⚠️\nAm ieșit din zona sigură setată.\n\nLocație:\n$mapsLink"
+                        } else {
+                            "⚠️ SAFE ZONE ALERT ⚠️\nAm ieșit din zona sigură setată.\n\nLocația nu a putut fi accesată."
+                        }
+
+                        onRequestSmsPermission {
+                            val smsManager = SmsManager.getDefault()
+
+                            contacts.forEach { phone ->
+                                val parts = smsManager.divideMessage(finalMessage)
+                                if (parts.size > 1) {
+                                    smsManager.sendMultipartTextMessage(phone, null, parts, null, null)
+                                } else {
+                                    smsManager.sendTextMessage(phone, null, finalMessage, null, null)
+                                }
+                            }
+
+                            Toast.makeText(context, "Alerta safe zone a fost trimisă.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+            } catch (e: Exception) {
+                Toast.makeText(context, "Eroare safe zone: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     val shakeListener = remember {
         object : SensorEventListener {
             private var lastShakeTime = 0L
@@ -413,6 +464,51 @@ fun AppNavGraph(
         }
     }
 
+    val locationRequest = remember {
+        LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10000L)
+            .setMinUpdateIntervalMillis(5000L)
+            .build()
+    }
+
+    val safeZoneLocationCallback = remember {
+        object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                val currentLocation = locationResult.lastLocation ?: return
+
+                if (!prefs.isSafeZoneEnabled()) return
+
+                val latString = prefs.getSafeZoneLatitude()
+                val lonString = prefs.getSafeZoneLongitude()
+                val radius = prefs.getSafeZoneRadius().toFloat()
+
+                val safeLat = latString.toDoubleOrNull()
+                val safeLon = lonString.toDoubleOrNull()
+
+                if (safeLat == null || safeLon == null) return
+
+                val results = FloatArray(1)
+                Location.distanceBetween(
+                    currentLocation.latitude,
+                    currentLocation.longitude,
+                    safeLat,
+                    safeLon,
+                    results
+                )
+
+                val distance = results[0]
+
+                if (distance > radius && !safeZoneAlertSent) {
+                    safeZoneAlertSent = true
+                    triggerSafeZoneAlert()
+                }
+
+                if (distance <= radius) {
+                    safeZoneAlertSent = false
+                }
+            }
+        }
+    }
+
     DisposableEffect(accelerometer) {
         if (accelerometer != null) {
             sensorManager.registerListener(
@@ -436,6 +532,21 @@ fun AppNavGraph(
                 context.unregisterReceiver(batteryReceiver)
             } catch (_: Exception) {
             }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onRequestLocationPermission {
+            @SuppressLint("MissingPermission")
+            fusedLocationClient.requestLocationUpdates(
+                locationRequest,
+                safeZoneLocationCallback,
+                android.os.Looper.getMainLooper()
+            )
+        }
+
+        onDispose {
+            fusedLocationClient.removeLocationUpdates(safeZoneLocationCallback)
         }
     }
 
