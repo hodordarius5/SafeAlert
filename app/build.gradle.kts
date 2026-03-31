@@ -50,6 +50,8 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation("androidx.navigation:navigation-compose:2.8.0") //adaugat pentru navigare intre ecrane
     implementation("com.google.android.gms:play-services-location:21.3.0") //adaugat pt locatie live
+    implementation("androidx.work:work-runtime-ktx:2.10.0") //rulare background
+    implementation("com.squareup.okhttp3:okhttp:4.12.0") //meteo
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

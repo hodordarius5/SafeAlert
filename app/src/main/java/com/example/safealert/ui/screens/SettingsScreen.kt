@@ -28,6 +28,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 @OptIn(ExperimentalMaterial3Api::class)
 
@@ -43,6 +45,8 @@ fun SettingsScreen(
     val inactivityEnabled = remember { mutableStateOf(false) }
     val selectedMinutes = remember { mutableStateOf(10) }
     val lowBatteryEnabled = remember { mutableStateOf(false) }
+    val weatherAlertsEnabled = remember { mutableStateOf(false) }
+    val weatherSmsEnabled = remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { //popularea datelor existente in ecranul de setari
         contact1.value = prefs.getContact1()
@@ -51,7 +55,11 @@ fun SettingsScreen(
         inactivityEnabled.value = prefs.isInactivityEnabled()
         selectedMinutes.value = prefs.getInactivityMinutes()
         lowBatteryEnabled.value = prefs.isLowBatteryEnabled()
+        weatherAlertsEnabled.value = prefs.isWeatherAlertsEnabled()
+        weatherSmsEnabled.value = prefs.isWeatherSmsEnabled()
     }
+
+    val scrollState = rememberScrollState() //pt scroll
 
     Scaffold(
         topBar = {
@@ -72,6 +80,7 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(20.dp)
+                .verticalScroll(scrollState)
         )
         {
             //camp contact 1
@@ -193,6 +202,46 @@ fun SettingsScreen(
             Text("La 10% se trimite alertă de baterie scăzută.")
             Text("La 5% se trimite locația finală.")
 
+            //zona meteo
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Alerte meteo")
+
+                Switch(
+                    checked = weatherAlertsEnabled.value,
+                    onCheckedChange = {
+                        weatherAlertsEnabled.value = it
+                        prefs.setWeatherAlertsEnabled(it)
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("SMS la alertă severă")
+
+                Switch(
+                    checked = weatherSmsEnabled.value,
+                    onCheckedChange = {
+                        weatherSmsEnabled.value = it
+                        prefs.setWeatherSmsEnabled(it)
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text("Verificare meteo la fiecare 15 minute.")
+            Text("Trimite SMS doar dacă alerta este severă.")
+
             Spacer(modifier = Modifier.height(20.dp))
 
             //buton pentru salvare
@@ -209,12 +258,17 @@ fun SettingsScreen(
                     prefs.setInactivityMinutes(selectedMinutes.value)
 
                     prefs.setLowBatteryEnabled(lowBatteryEnabled.value)
+
+                    prefs.setWeatherAlertsEnabled(weatherAlertsEnabled.value)
+                    prefs.setWeatherSmsEnabled(weatherSmsEnabled.value)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Text("Salvează")
             }
+
+            Spacer(modifier = Modifier.height(40.dp))
 
         }
 

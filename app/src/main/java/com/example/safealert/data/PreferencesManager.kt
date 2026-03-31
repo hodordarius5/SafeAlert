@@ -10,6 +10,9 @@ class PreferencesManager(context: Context){
 
     private val KEY_LOW_BATTERY_ENABLED = "low_battery_enabled" //pt feature baterie
 
+    private val KEY_WEATHER_ALERTS_ENABLED = "weather_alerts_enabled" //pt functia de vreme
+    private val KEY_WEATHER_SMS_ENABLED = "weather_sms_enabled"
+
     fun saveContacts(contact1: String, contact2: String, message: String){
         prefs.edit().apply{
             putString("contact1", contact1)
@@ -56,6 +59,23 @@ class PreferencesManager(context: Context){
 
     fun isLowBatteryEnabled(): Boolean {
         return prefs.getBoolean(KEY_LOW_BATTERY_ENABLED, false)
+    }
+
+    //functii pt functia de vreme
+    fun setWeatherAlertsEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_WEATHER_ALERTS_ENABLED, enabled).apply()
+    }
+
+    fun isWeatherAlertsEnabled(): Boolean {
+        return prefs.getBoolean(KEY_WEATHER_ALERTS_ENABLED, false)
+    }
+
+    fun setWeatherSmsEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_WEATHER_SMS_ENABLED , enabled).apply()
+    }
+
+    fun isWeatherSmsEnabled(): Boolean {
+        return prefs.getBoolean(KEY_WEATHER_SMS_ENABLED , false)
     }
 
 }

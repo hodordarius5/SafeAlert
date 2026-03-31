@@ -12,6 +12,12 @@ import androidx.core.content.ContextCompat
 import androidx.navigation.compose.rememberNavController
 import com.example.safealert.navigation.AppNavGraph
 import com.example.safealert.ui.theme.SafeAlertTheme
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.example.safealert.weather.WeatherAlertWorker
+import java.util.concurrent.TimeUnit
+import androidx.work.OneTimeWorkRequestBuilder
 
 class MainActivity : ComponentActivity() {
 
@@ -26,7 +32,7 @@ class MainActivity : ComponentActivity() {
             if (isGranted) {
                 pendingCallAction?.invoke()
             } else {
-                Toast.makeText(this, "Call permission denied", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Permisiune apel respinsa", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -53,7 +59,7 @@ class MainActivity : ComponentActivity() {
             if (isGranted) {
                 pendingAudioAction?.invoke()
             } else {
-                Toast.makeText(this, "Microphone permission denied", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Permisiune audio respinsă", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -115,6 +121,22 @@ class MainActivity : ComponentActivity() {
                 requestCallPermissionLauncher.launch(Manifest.permission.CALL_PHONE)
             }
         }
+
+        val weatherWorkRequest =
+            PeriodicWorkRequestBuilder<WeatherAlertWorker>(15, TimeUnit.MINUTES)
+                .build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+             "weather_alert_monitor",
+              ExistingPeriodicWorkPolicy.UPDATE,
+              weatherWorkRequest
+        )
+
+//        val testWeatherWorkRequest =
+//            OneTimeWorkRequestBuilder<WeatherAlertWorker>()
+//                .build()
+//
+//        WorkManager.getInstance(this).enqueue(testWeatherWorkRequest)
 
                 setContent {
             SafeAlertTheme {
