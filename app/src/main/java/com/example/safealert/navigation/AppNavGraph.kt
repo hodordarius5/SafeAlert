@@ -45,6 +45,9 @@ import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.Priority
 import com.google.android.gms.location.LocationResult
+import com.example.safealert.audio.AudioRecorderManager
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 //lista ecranelor si a rutelor
 sealed class Screen(val route: String) {
@@ -88,6 +91,45 @@ fun AppNavGraph(
     var finalBatteryAlertSent by remember { mutableStateOf(false) }
 
     var safeZoneAlertSent by remember { mutableStateOf(false) }
+
+    val audioRecorderManager = remember { AudioRecorderManager(context) }
+    val coroutineScope = rememberCoroutineScope()
+
+    fun startEmergencyAudioRecording() {
+        onRequestAudioPermission {
+            val filePath = audioRecorderManager.startRecording()
+
+            if (filePath != null) {
+                Toast.makeText(
+                    context,
+                    "Înregistrare audio pornită",
+                    Toast.LENGTH_SHORT
+                ).show()
+
+                Log.d("AUDIO_RECORD", "Recording started: $filePath")
+
+                coroutineScope.launch {
+                    delay(10_000) // 10 secunde pentru test
+
+                    val savedPath = audioRecorderManager.stopRecording()
+
+                    Toast.makeText(
+                        context,
+                        "Înregistrare audio salvată",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    Log.d("AUDIO_RECORD", "Recording saved: $savedPath")
+                }
+            } else {
+                Toast.makeText(
+                    context,
+                    "Nu am putut porni înregistrarea audio",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
 
     fun triggerSos() {
         val c1 = prefs.getContact1().trim()
@@ -156,6 +198,8 @@ fun AppNavGraph(
                                 android.util.Log.d("SOS", "Mesaj trimis: $finalMessage")
                                 showCallCountdownDialog = true //porneste countdown
                                 countdown = 10
+
+                                startEmergencyAudioRecording() //pt inregistrare audio
                             }
                         }
                         .addOnFailureListener {
