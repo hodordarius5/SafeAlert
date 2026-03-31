@@ -78,4 +78,29 @@ class PreferencesManager(context: Context){
         return prefs.getBoolean(KEY_WEATHER_SMS_ENABLED , false)
     }
 
+    //funcții pentru programare mesaje
+    fun setScheduledMessageEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("scheduled_message_enabled", enabled).apply()
+    }
+
+    fun isScheduledMessageEnabled(): Boolean {
+        return prefs.getBoolean("scheduled_message_enabled", false)
+    }
+
+    fun setScheduledMessageText(message: String) {
+        prefs.edit().putString("scheduled_message_text", message).apply()
+    }
+
+    fun getScheduledMessageText(): String {
+        return prefs.getString("scheduled_message_text", "") ?: ""
+    }
+
+    fun setScheduledMessageHours(hours: Int) {
+        prefs.edit().putInt("scheduled_message_hours", hours).apply()
+    }
+
+    fun getScheduledMessageHours(): Int {
+        return prefs.getInt("scheduled_message_hours", 3)
+    }
+
 }

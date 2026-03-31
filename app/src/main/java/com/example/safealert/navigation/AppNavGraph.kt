@@ -54,7 +54,9 @@ fun AppNavGraph(
     onRequestSmsPermission: (action: () -> Unit) -> Unit,
     onRequestLocationPermission: (action: () -> Unit) -> Unit,
     onRequestAudioPermission:(action: () -> Unit) -> Unit,
-    onRequestCallPermission:(action: () -> Unit) -> Unit
+    onRequestCallPermission:(action: () -> Unit) -> Unit,
+    onArmScheduledMessage: () -> Unit,
+    onCancelScheduledMessage: () -> Unit
 ) {
 
     val context = LocalContext.current
@@ -564,7 +566,9 @@ fun AppNavGraph(
                     lastUserInteractionTime = System.currentTimeMillis()
                     inactivityAlertSent = false
                     navController.popBackStack()
-                }
+                },
+                onArmScheduledMessage = onArmScheduledMessage,
+                onCancelScheduledMessage = onCancelScheduledMessage
             )
         }
     }

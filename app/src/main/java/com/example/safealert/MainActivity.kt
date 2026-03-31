@@ -18,6 +18,10 @@ import androidx.work.WorkManager
 import com.example.safealert.weather.WeatherAlertWorker
 import java.util.concurrent.TimeUnit
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.Data
+import androidx.work.ExistingWorkPolicy
+import com.example.safealert.data.PreferencesManager
+import com.example.safealert.scheduled.ScheduledSafetyWorker
 
 class MainActivity : ComponentActivity() {
 
@@ -132,6 +136,30 @@ class MainActivity : ComponentActivity() {
               weatherWorkRequest
         )
 
+        val prefs = PreferencesManager(this)
+
+        val armScheduledMessage: () -> Unit = {
+            val hours = prefs.getScheduledMessageHours().toLong()
+
+            val work = OneTimeWorkRequestBuilder<ScheduledSafetyWorker>()
+                .setInitialDelay(hours, TimeUnit.HOURS)
+               // .setInitialDelay(10, TimeUnit.SECONDS) // test
+                .build()
+
+            WorkManager.getInstance(this).enqueueUniqueWork(
+                "scheduled_safety_message",
+                ExistingWorkPolicy.REPLACE,
+                work
+            )
+
+            Toast.makeText(this, "Mesajul programat a fost activat.", Toast.LENGTH_SHORT).show()
+        }
+
+        val cancelScheduledMessage: () -> Unit = {
+            WorkManager.getInstance(this).cancelUniqueWork("scheduled_safety_message")
+            Toast.makeText(this, "Mesajul programat a fost anulat.", Toast.LENGTH_SHORT).show()
+        }
+
 //        val testWeatherWorkRequest =
 //            OneTimeWorkRequestBuilder<WeatherAlertWorker>()
 //                .build()
@@ -146,7 +174,9 @@ class MainActivity : ComponentActivity() {
                     onRequestSmsPermission = requestSmsPermissionIfNeeded,
                     onRequestLocationPermission = requestLocationPermissionIfNeeded,
                     onRequestAudioPermission = requestAudioPermissionIfNeeded,
-                    onRequestCallPermission = requestCallPermissionIfNeeded
+                    onRequestCallPermission = requestCallPermissionIfNeeded,
+                    onArmScheduledMessage = armScheduledMessage,
+                    onCancelScheduledMessage = cancelScheduledMessage
                 )
             }
         }

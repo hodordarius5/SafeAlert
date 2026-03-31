@@ -35,7 +35,9 @@ import androidx.compose.foundation.verticalScroll
 
 @Composable
 fun SettingsScreen(
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onArmScheduledMessage: () -> Unit,
+    onCancelScheduledMessage: () -> Unit
 ){
     val contact1 = remember {mutableStateOf("")} //nu pierde valoare la rerandare
     val contact2 = remember {mutableStateOf("")}
@@ -48,6 +50,10 @@ fun SettingsScreen(
     val weatherAlertsEnabled = remember { mutableStateOf(false) }
     val weatherSmsEnabled = remember { mutableStateOf(false) }
 
+    val scheduledMessageEnabled = remember { mutableStateOf(false) }
+    val scheduledMessageText = remember { mutableStateOf("") }
+    val scheduledMessageHours = remember { mutableStateOf(3) }
+
     LaunchedEffect(Unit) { //popularea datelor existente in ecranul de setari
         contact1.value = prefs.getContact1()
         contact2.value = prefs.getContact2()
@@ -57,6 +63,9 @@ fun SettingsScreen(
         lowBatteryEnabled.value = prefs.isLowBatteryEnabled()
         weatherAlertsEnabled.value = prefs.isWeatherAlertsEnabled()
         weatherSmsEnabled.value = prefs.isWeatherSmsEnabled()
+        scheduledMessageEnabled.value = prefs.isScheduledMessageEnabled()
+        scheduledMessageText.value = prefs.getScheduledMessageText()
+        scheduledMessageHours.value = prefs.getScheduledMessageHours()
     }
 
     val scrollState = rememberScrollState() //pt scroll
@@ -115,7 +124,6 @@ fun SettingsScreen(
             )
 
             Spacer(modifier = Modifier.height(24.dp))
-
 
             //toggle pt feature inactivitate
             Row(
@@ -242,6 +250,75 @@ fun SettingsScreen(
             Text("Verificare meteo la fiecare 15 minute.")
             Text("Trimite SMS doar dacă alerta este severă.")
 
+            //zona programare alerte
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Mesaj programat de siguranță")
+
+                Switch(
+                    checked = scheduledMessageEnabled.value,
+                    onCheckedChange = {
+                        scheduledMessageEnabled.value = it
+                        prefs.setScheduledMessageEnabled(it)
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = scheduledMessageText.value,
+                onValueChange = { scheduledMessageText.value = it },
+                label = { Text("Mesaj programat") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text("Trimite dacă nu anulez în:")
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(1, 2, 3, 6).forEach { hour ->
+                    OutlinedButton(
+                        onClick = { scheduledMessageHours.value = hour },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("$hour h")
+                    }
+                }
+            }
+
+            //zona programare mesaj
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = onArmScheduledMessage,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text("Pornește countdown")
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedButton(
+                onClick = onCancelScheduledMessage,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text("Anulează countdown")
+            }
+
             Spacer(modifier = Modifier.height(20.dp))
 
             //buton pentru salvare
@@ -261,6 +338,10 @@ fun SettingsScreen(
 
                     prefs.setWeatherAlertsEnabled(weatherAlertsEnabled.value)
                     prefs.setWeatherSmsEnabled(weatherSmsEnabled.value)
+
+                    prefs.setScheduledMessageEnabled(scheduledMessageEnabled.value)
+                    prefs.setScheduledMessageText(scheduledMessageText.value)
+                    prefs.setScheduledMessageHours(scheduledMessageHours.value)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp)
